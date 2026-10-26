@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#16a34a">
+<title>POS</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<!-- Step 1: API URL setup -->
+<section id="screen-api" class="screen hidden">
+  <div class="card auth-card">
+    <h1>Connect to Google Sheets</h1>
+    <p class="muted">Paste your Apps Script Web app URL (it ends with /exec).</p>
+    <div class="field">
+      <label for="apiUrl">Web app URL</label>
+      <input id="apiUrl" type="url" inputmode="url" placeholder="https://script.google.com/macros/s/.../exec" autocomplete="off">
+    </div>
+    <p id="apiMsg" class="msg" role="alert"></p>
+    <button id="btnSaveApi" class="btn btn-primary btn-block">Test and save</button>
+  </div>
+</section>
+
+<!-- Step 2: Login / first owner account -->
+<section id="screen-login" class="screen hidden">
+  <div class="card auth-card">
+    <h1 id="loginTitle">Sign in</h1>
+    <div id="bootBox" class="hidden">
+      <p class="muted">First time setup: create the owner account.</p>
+      <div class="field"><label for="bootBiz">Business name</label><input id="bootBiz" type="text" maxlength="80"></div>
+      <div class="field"><label for="bootName">Your name</label><input id="bootName" type="text" maxlength="60"></div>
+    </div>
+    <div class="field"><label for="loginUser">Username</label><input id="loginUser" type="text" autocapitalize="none" autocomplete="username"></div>
+    <div class="field"><label for="loginPass">Password</label><input id="loginPass" type="password" autocomplete="current-password"></div>
+    <p id="loginMsg" class="msg" role="alert"></p>
+    <button id="btnLogin" class="btn btn-primary btn-block">Sign in</button>
+    <button id="btnChangeApi" class="btn btn-ghost btn-block">Change API URL</button>
+  </div>
+</section>
+
+<!-- Main app -->
+<div id="app" class="hidden">
+  <header class="topbar">
+    <button id="btnMenu" class="icon-btn" aria-label="Menu"></button>
+    <div class="brand">
+      <strong id="bizName">POS</strong>
+      <small id="todayDate"></small>
+    </div>
+    <span id="syncStatus" class="sync" data-state="offline">Offline</span>
+    <button id="btnSync" class="icon-btn" aria-label="Refresh"></button>
+  </header>
+
+  <main id="view" class="view"></main>
+
+  <nav id="bottomNav" class="bottom-nav" aria-label="Main"></nav>
+
+  <div id="drawerBack" class="backdrop hidden"></div>
+  <aside id="drawer" class="drawer" aria-hidden="true">
+    <div class="drawer-head"><strong id="drawerUser"></strong><small id="drawerRole"></small></div>
+    <div id="drawerLinks"></div>
+  </aside>
+</div>
+
+<!-- Modal sheet -->
+<div id="modal" class="modal hidden" role="dialog" aria-modal="true">
+  <div class="sheet">
+    <div class="sheet-head"><strong id="modalTitle"></strong><button id="modalClose" class="icon-btn" aria-label="Close"></button></div>
+    <div id="modalBody" class="sheet-body"></div>
+  </div>
+</div>
+
+<div id="toast" class="toast hidden" role="status"></div>
+<div id="loader" class="loader hidden"><div class="spinner"></div></div>
+<div id="receipt" class="receipt-print"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<script src="script.js"></script>
+<script src="pos.js"></script>
+<script src="manage.js"></script>
+<script src="reports.js"></script>
+<script>App.start();</script>
+</body>
+</html>

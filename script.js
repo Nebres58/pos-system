@@ -32,7 +32,20 @@ const state = App.state = {
   user: null, settings: {}, products: [], sales: [], saleItems: [],
   expenses: [], movements: [], users: {}, view: 'dashboard'
 };
-
+const dayKey = (value) => {
+  if (value == null || value === '') return '';
+  // Sheets often returns date-only fields (not timestamps). Keep their calendar
+  // date as-is instead of parsing YYYY-MM-DD as UTC and shifting it by the TZ.
+  if (typeof value === 'string') {
+    const dateOnly = value.trim().match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    if (dateOnly) return dateOnly[1] + '-' + dateOnly[2] + '-' + dateOnly[3];
+  }
+  const d = new Date(value);
+  if (isNaN(d)) return '';
+  const parts = new Intl.DateTimeFormat('en-US', { timeZone: tz(), year: 'numeric', month: '2-digit', day: '2-digit' }).formatToParts(d);
+  const part = (type) => parts.find((p) => p.type === type).value;
+  return part('year') + '-' + part('month') + '-' + part('day');
+};
 /* ===== Small utilities (shared by all files) ===== */
 const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -42,7 +55,6 @@ const tz = () => state.settings.TimeZone || 'Asia/Manila';
 const money = (n) => new Intl.NumberFormat('en-PH', { style: 'currency', currency: 'PHP' }).format(num(n));
 const fmtDateTime = (iso) => { const d = new Date(iso); return isNaN(d) ? '' : d.toLocaleString('en-PH', { timeZone: tz(), dateStyle: 'medium', timeStyle: 'short' }); };
 const fmtDate = (iso) => { const d = new Date(iso); return isNaN(d) ? '' : d.toLocaleDateString('en-PH', { timeZone: tz(), dateStyle: 'medium' }); };
-const dayKey = (iso) => { const d = new Date(iso); return isNaN(d) ? '' : new Intl.DateTimeFormat('en-CA', { timeZone: tz(), year: 'numeric', month: '2-digit', day: '2-digit' }).format(d); };
 const todayKey = () => dayKey(new Date().toISOString());
 const addDays = (key, n) => { const d = new Date(key + 'T12:00:00Z'); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10); };
 const isAdmin = () => !!state.user && state.user.Role === 'admin';

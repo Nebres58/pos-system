@@ -2,9 +2,10 @@
 /* ===== Dashboard, transactions, expenses and business settings ===== */
 
 const txTotal = (s) => r2(Math.max(0, num(s.AmountPaid) - num(s.ChangeAmount)));
-const txDateKey = (s) => dayKey(s.DateTime);
-const txStatus = (s) => s.Status || 'Completed';
-
+const txDateValue = (s) => s.DateTime || s.Date || s.CreatedAt || '';
+const txDateKey = (s) => dayKey(txDateValue(s));
+const txTime = (s) => { const d = new Date(txDateValue(s)); return isNaN(d) ? 0 : d.getTime(); };
+const txStatus = (s) => { const status = String(s.Status || 'Completed').toLowerCase(); return status === 'refunded' ? 'Refunded' : 'Completed'; };
 App.views.dashboard = function (el) {
   const today = todayKey();
   const sales = state.sales.filter((s) => txDateKey(s) === today && txStatus(s) !== 'Refunded');
@@ -12,7 +13,7 @@ App.views.dashboard = function (el) {
   const expenses = state.expenses.filter((x) => dayKey(x.DateTime || x.Date || x.CreatedAt) === today);
   const expenseTotal = r2(expenses.reduce((sum, x) => sum + num(x.Amount), 0));
   const low = state.products.filter((p) => p.Status === 'Active' && (isLow(p) || isOut(p)));
-  const recent = state.sales.slice().sort((a, b) => new Date(b.DateTime) - new Date(a.DateTime)).slice(0, 5);
+  const recent = state.sales.slice().sort((a, b) => txTime(b) - txTime(a)).slice(0, 5);
   const stat = (label, value, cls) => '<div class="stat ' + (cls || '') + '"><div class="stat-label">' + label + '</div><div class="stat-value">' + value + '</div></div>';
   el.innerHTML = '<div class="spread"><h2>Dashboard</h2><span class="muted">Today</span></div>' +
     '<div class="grid-cards" style="margin-top:10px">' + stat('Sales', money(revenue), 'pos') + stat('Transactions', sales.length) +
@@ -20,14 +21,13 @@ App.views.dashboard = function (el) {
     '<div class="section-title"><h3>Stock alerts</h3><button class="btn btn-sm" data-go="inventory">Inventory</button></div>' +
     '<div class="card">' + (low.length ? low.slice(0, 8).map((p) => '<div class="list-item"><div class="grow"><div class="title">' + esc(p.Name) + '</div><div class="sub">' + esc(p.SKU) + '</div></div>' + stockBadge(p) + '</div>').join('') : emptyState('check', 'No low-stock products.')) + '</div>' +
     '<div class="section-title"><h3>Recent transactions</h3><button class="btn btn-sm" data-go="transactions">View all</button></div>' +
-    '<div class="card">' + (recent.length ? recent.map((s) => '<button class="list-item" data-tx="' + esc(s.TransactionID) + '" style="width:100%;border:0;border-bottom:1px solid var(--line);background:transparent;text-align:left;cursor:pointer"><span class="grow"><span class="title">' + esc(s.TransactionID) + '</span><span class="sub" style="display:block">' + esc(fmtDateTime(s.DateTime)) + ' · ' + esc(s.PaymentMethod) + '</span></span><strong>' + money(txTotal(s)) + '</strong></button>').join('') : emptyState('receipt', 'No transactions yet.')) + '</div>';
+    '<div class="card">' + (recent.length ? recent.map((s) => '<button class="list-item" data-tx="' + esc(s.TransactionID) + '" style="width:100%;border:0;border-bottom:1px solid var(--line);background:transparent;text-align:left;cursor:pointer"><span class="grow"><span class="title">' + esc(s.TransactionID) + '</span><span class="sub" style="display:block">' + esc(fmtDateTime(txDateValue(s))) + ' · ' + esc(s.PaymentMethod) + '</span></span><strong>' + money(txTotal(s)) + '</strong></button>').join('') : emptyState('receipt', 'No transactions yet.')) + '</div>';
   el.onclick = (e) => {
     const go = e.target.closest('[data-go]'), tx = e.target.closest('[data-tx]');
     if (go) App.navigate(go.dataset.go);
     if (tx) showTransaction(tx.dataset.tx);
   };
 };
-
 App.views.transactions = function (el) {
   const u = App.ui.transactions = App.ui.transactions || { q: '', from: '', to: '', status: 'All' };
   el.innerHTML = '<h2 style="margin-bottom:10px">Transactions</h2>' +
@@ -41,7 +41,7 @@ App.views.transactions = function (el) {
       const date = txDateKey(s), status = txStatus(s);
       return (!u.from || date >= u.from) && (!u.to || date <= u.to) && (u.status === 'All' || status === u.status) &&
         (!q || String(s.TransactionID).toLowerCase().includes(q) || String(userName(s.CashierID)).toLowerCase().includes(q));
-    }).slice().sort((a, b) => new Date(b.DateTime) - new Date(a.DateTime)).slice(0, 500);
+    }).slice().sort((a, b) => txTime(b) - txTime(a)).slice(0, 500);
     $('txList').innerHTML = rows.length ? '<div class="card tbl-wrap"><table><thead><tr><th>Date</th><th>Receipt</th><th>Cashier</th><th>Payment</th><th>Status</th><th class="num">Total</th></tr></thead><tbody>' +
       rows.map((s) => '<tr data-tx="' + esc(s.TransactionID) + '" tabindex="0" role="button" style="cursor:pointer"><td>' + esc(fmtDateTime(s.DateTime)) + '</td><td>' + esc(s.TransactionID) + '</td><td>' + esc(userName(s.CashierID)) + '</td><td>' + esc(s.PaymentMethod) + '</td><td>' + (txStatus(s) === 'Refunded' ? '<span class="badge bad">Refunded</span>' : '<span class="badge ok">Completed</span>') + '</td><td class="num">' + money(txTotal(s)) + '</td></tr>').join('') +
       '</tbody></table></div><p class="muted" style="font-size:.78rem">Showing up to 500 matching transactions.</p>' : '<div class="card">' + emptyState('receipt', 'No transactions match your filters.') + '</div>';

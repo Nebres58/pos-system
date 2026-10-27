@@ -94,6 +94,15 @@ function toast(msg, type) {
   clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.add('hidden'), type === 'err' ? 5000 : 2500);
 }
 function loading(on) { $('loader').classList.toggle('hidden', !on); }
+// Keep connection status updates safe on setup/login screens, which do not
+// display the app header but still make API requests.
+function setSync(status) {
+  const labels = { offline: 'Offline', syncing: 'Syncing…', connected: 'Connected', failed: 'Connection failed' };
+  const el = $('syncStatus');
+  if (!el) return;
+  el.dataset.state = status;
+  el.textContent = labels[status] || status;
+}
 let topProgressRequests = 0, topProgressValue = 0, topProgressTimer = null, topProgressHide = null;
 function beginTopProgress() {
   const bar = $('topProgress');

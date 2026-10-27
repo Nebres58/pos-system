@@ -94,25 +94,25 @@ function toast(msg, type) {
   clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.add('hidden'), type === 'err' ? 5000 : 2500);
 }
 function loading(on) { $('loader').classList.toggle('hidden', !on); }
+let topProgressRequests = 0, topProgressValue = 0, topProgressTimer = null, topProgressHide = null;
+function beginTopProgress() {
+  const bar = $('topProgress');
+  clearTimeout(topProgressHide);
+  if (topProgressRequests++ === 0) {
+    topProgressValue = 8; bar.classList.remove('hidden'); bar.style.width = '8%';
+  }
+  if (!topProgressTimer) topProgressTimer = setInterval(() => {
+    if (topProgressRequests) { topProgressValue += Math.max(0.3, (90 - topProgressValue) * 0.08); $('topProgress').style.width = topProgressValue + '%'; }
+  }, 120);
+}
+function endTopProgress() {
+  topProgressRequests = Math.max(0, topProgressRequests - 1);
+  if (topProgressRequests) return;
+  clearInterval(topProgressTimer); topProgressTimer = null;
+  const bar = $('topProgress'); topProgressValue = 100; bar.style.width = '100%';
+  topProgressHide = setTimeout(() => { bar.classList.add('hidden'); bar.style.width = '0'; topProgressValue = 0; }, 220);
+}
 let modalCancel = null;
-function openModal(title, html) {
-  $('modalTitle').textContent = title; $('modalBody').innerHTML = html;
-  $('modal').classList.remove('hidden'); $('modalBody').scrollTop = 0;
-}
-function closeModal() { $('modal').classList.add('hidden'); $('modalBody').innerHTML = ''; if (modalCancel) { const f = modalCancel; modalCancel = null; f(); } }
-function confirmBox(message, okLabel, danger) {
-  return new Promise((resolve) => {
-    openModal('Please confirm', '<p style="margin-bottom:16px">' + esc(message) + '</p><div class="grid2"><button class="btn btn-ghost" id="cNo">Cancel</button><button class="btn ' + (danger ? 'btn-danger' : 'btn-primary') + '" id="cYes">' + esc(okLabel || 'Confirm') + '</button></div>');
-    modalCancel = () => resolve(false);
-    $('cNo').onclick = () => closeModal();
-    $('cYes').onclick = () => { modalCancel = null; closeModal(); resolve(true); };
-  });
-}
-
-/* ===== API layer (single place for all server calls) ===== */
-const SYNC_TEXT = { connected: 'Connected', syncing: 'Syncing...', offline: 'Offline', failed: 'Sync failed' };
-function setSync(s) { const e = $('syncStatus'); e.dataset.state = s; e.textContent = SYNC_TEXT[s]; $('btnSync').classList.toggle('spin', s === 'syncing'); }
-
 async function api(action, payload, opts) {
   opts = opts || {};
   const url = opts.url || state.apiUrl;
@@ -121,8 +121,8 @@ async function api(action, payload, opts) {
   setSync('syncing');
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), 30000);
+  beginTopProgress();
   try {
-    // text/plain avoids the CORS preflight that Apps Script web apps cannot answer.
     const res = await fetch(url, { method: 'POST', redirect: 'follow', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ action: action, payload: payload || {}, token: opts.noAuth ? undefined : state.token }), signal: ctrl.signal });
     let json;
     try { json = await res.json(); } catch (e) { throw new Error('Unexpected server response. Check the URL and that the deployment access is "Anyone".'); }
@@ -142,7 +142,7 @@ async function api(action, payload, opts) {
       else if (e instanceof TypeError) e = new Error('Cannot reach the server. Check your connection and API URL.');
     }
     throw e;
-  } finally { clearTimeout(timer); }
+  } finally { clearTimeout(timer); endTopProgress(); }
 }
 // Runs an action with loader + toasts. Returns the response, or null on failure.
 async function act(action, payload, okMsg) {

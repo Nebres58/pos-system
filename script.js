@@ -113,37 +113,26 @@ function endTopProgress() {
   topProgressHide = setTimeout(() => { bar.classList.add('hidden'); bar.style.width = '0'; topProgressValue = 0; }, 220);
 }
 let modalCancel = null;
-async function api(action, payload, opts) {
-  opts = opts || {};
-  const url = opts.url || state.apiUrl;
-  if (!url) throw new Error('API URL is not set');
-  if (!navigator.onLine) { setSync('offline'); throw new Error('You are offline. Check your internet connection.'); }
-  setSync('syncing');
-  const ctrl = new AbortController();
-  const timer = setTimeout(() => ctrl.abort(), 30000);
-  beginTopProgress();
-  try {
-    const res = await fetch(url, { method: 'POST', redirect: 'follow', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ action: action, payload: payload || {}, token: opts.noAuth ? undefined : state.token }), signal: ctrl.signal });
-    let json;
-    try { json = await res.json(); } catch (e) { throw new Error('Unexpected server response. Check the URL and that the deployment access is "Anyone".'); }
-    if (!json || typeof json.success !== 'boolean') throw new Error('Unexpected server response.');
-    if (!json.success) {
-      const err = new Error(json.message || 'Request failed'); err.server = true;
-      setSync('connected');
-      if (/session expired/i.test(err.message)) App.logout(true);
-      throw err;
-    }
-    setSync('connected');
-    return json;
-  } catch (e) {
-    if (!e.server) {
-      setSync('failed');
-      if (e.name === 'AbortError') e = new Error('The request timed out. Check your connection and try again.');
-      else if (e instanceof TypeError) e = new Error('Cannot reach the server. Check your connection and API URL.');
-    }
-    throw e;
-  } finally { clearTimeout(timer); endTopProgress(); }
+function openModal(title, html) {
+  $('modalTitle').textContent = title;
+  $('modalBody').innerHTML = html;
+  $('modal').classList.remove('hidden');
+  $('modalBody').scrollTop = 0;
 }
+function closeModal() {
+  $('modal').classList.add('hidden');
+  $('modalBody').innerHTML = '';
+  if (modalCancel) { const cancel = modalCancel; modalCancel = null; cancel(); }
+}
+function confirmBox(message, okLabel, danger) {
+  return new Promise((resolve) => {
+    openModal('Please confirm', '<p style="margin-bottom:16px">' + esc(message) + '</p><div class="grid2"><button class="btn btn-ghost" id="cNo">Cancel</button><button class="btn ' + (danger ? 'btn-danger' : 'btn-primary') + '" id="cYes">' + esc(okLabel || 'Confirm') + '</button></div>');
+    modalCancel = () => resolve(false);
+    $('cNo').onclick = closeModal;
+    $('cYes').onclick = () => { modalCancel = null; closeModal(); resolve(true); };
+  });
+}
+async function api(action, payload, opts) { opts = opts || {}; const url = opts.url || state.apiUrl; if (!url) throw new Error('API URL is not set'); if (!navigator.onLine) { setSync('offline'); throw new Error('You are offline. Check your internet connection.'); } setSync('syncing'); const ctrl = new AbortController(); const timer = setTimeout(() => ctrl.abort(), 30000); beginTopProgress(); try { const res = await fetch(url, { method: 'POST', redirect: 'follow', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ action: action, payload: payload || {}, token: opts.noAuth ? undefined : state.token }), signal: ctrl.signal }); let json; try { json = await res.json(); } catch (e) { throw new Error('Unexpected server response. Check the URL and that the deployment access is "Anyone".'); } if (!json || typeof json.success !== 'boolean') throw new Error('Unexpected server response.'); if (!json.success) { const err = new Error(json.message || 'Request failed'); err.server = true; setSync('connected'); if (/session expired/i.test(err.message)) App.logout(true); throw err; } setSync('connected'); return json; } catch (e) { if (!e.server) { setSync('failed'); if (e.name === 'AbortError') e = new Error('The request timed out. Check your connection and try again.'); else if (e instanceof TypeError) e = new Error('Cannot reach the server. Check your connection and API URL.'); } throw e; } finally { clearTimeout(timer); endTopProgress(); } }
 // Runs an action with loader + toasts. Returns the response, or null on failure.
 async function act(action, payload, okMsg) {
   loading(true);
